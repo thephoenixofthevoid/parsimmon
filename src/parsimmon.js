@@ -381,10 +381,6 @@ var bytesBefore = bytesPerLine * 5;
 var bytesAfter = bytesPerLine * 4;
 var defaultLinePrefix = "  ";
 
-function repeat(string, amount) {
-  return new Array(amount + 1).join(string);
-}
-
 function formatExpected(expected) {
   if (expected.length === 1) {
     return "Expected:\n\n" + expected[0];
@@ -543,9 +539,9 @@ function formatGot(input, error) {
         isLineWithError
           ? [
               defaultLinePrefix +
-                repeat(" ", lastLineNumberLabelLength) + " | " +
-                repeat(" ", column) +
-                repeat("^", verticalMarkerLength)
+                " ".repeat(lastLineNumberLabelLength) + " | " +
+                " ".repeat(column) +
+                "^".repeat(verticalMarkerLength)
             ]
           : []
       );
@@ -557,7 +553,7 @@ function formatGot(input, error) {
 }
 
 function formatError(input, error) {
-  return `\n-- PARSING FAILED ${repeat("-", 50)}\n\n${
+  return `\n-- PARSING FAILED ${"-".repeat(50)}\n\n${
     formatGot(input, error)
   }\n\n${
     formatExpected(error.expected)
@@ -592,9 +588,7 @@ function seq(...parsers) {
     var accum = new Array(parsers.length);
     for (var j = 0; j < parsers.length; j += 1) {
       result = mergeReplies(parsers[j]._(input, i), result);
-      if (!result.status) {
-        return result;
-      }
+      if (!result.status) return result;
       accum[j] = result.value;
       i = result.index;
     }
@@ -803,14 +797,15 @@ Parsimmon.prototype.tieWith = function(separator) {
 };
 
 Parsimmon.prototype.tie = function() {
-  return this.tieWith("");
+  return this.map(function(args) {
+    assertArray(args);
+    args.forEach(assertString)
+    return args.join("")
+  });
 };
 
-Parsimmon.prototype.times = function(min, max) {
+Parsimmon.prototype.times = function(min, max = min) {
   var self = this;
-  if (arguments.length < 2) {
-    max = min;
-  }
   assertNumber(min);
   assertNumber(max);
   return Parsimmon(function(input, i) {
@@ -893,22 +888,13 @@ Parsimmon.prototype.skip = function(next) {
 
 Parsimmon.prototype.mark = function() {
   return seqMap(index, this, index, function(start, value, end) {
-    return {
-      start: start,
-      value: value,
-      end: end
-    };
+    return { start, value, end };
   });
 };
 
 Parsimmon.prototype.node = function(name) {
   return seqMap(index, this, index, function(start, value, end) {
-    return {
-      name: name,
-      value: value,
-      start: start,
-      end: end
-    };
+    return { name, value, start, end };
   });
 };
 
