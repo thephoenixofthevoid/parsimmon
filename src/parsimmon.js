@@ -48,21 +48,9 @@ function sum(numArr) {
   return sum
 }
 
-function bufferExists() {
-  return typeof Buffer !== "undefined";
-}
-
-function setExists() {
-  if (Parsimmon._supportsSet !== undefined) {
-    return Parsimmon._supportsSet;
-  }
-  var exists = typeof Set !== "undefined";
-  Parsimmon._supportsSet = exists;
-  return exists;
-}
 
 function ensureBuffer() {
-  if (!bufferExists()) {
+  if (typeof Buffer === "undefined") {
     throw new Error(
       "Buffer global does not exist; please use webpack if you need to parse Buffers in the browser."
     );
@@ -95,20 +83,17 @@ function bitSeq(alignments) {
     if (newPos > input.length) {
       return makeFailure(i, bytes.toString() + " bytes");
     }
-    return makeSuccess(
-      newPos,
-      alignments.reduce(
-        function(acc, bits) {
-          var state = consumeBitsFromBuffer(bits, acc.buf);
-          return {
-            coll: acc.coll.concat(state.v),
-            buf: state.buf
-          };
-        },
-        { coll: [], buf: input.slice(i, newPos) },
-        
-      ).coll
-    );
+
+    let buf = input.slice(i, newPos)      
+    let coll = []
+
+    for (let bits of alignments) {
+      const state = consumeBitsFromBuffer(bits, buf)
+      coll.push(state.v)
+      buf = state.buf
+    }
+
+    return makeSuccess(newPos, coll)
   });
 }
 
@@ -156,19 +141,13 @@ function bitSeqObj(namedAlignments) {
   }
 
   return bitSeq(alignmentsOnly).map(function(parsed) {
-    var namedParsed = namesOnly.map(function(name, i) {
-      return [name, parsed[i]];
-    });
-
-    return namedParsed.reduce(
-      function(obj, kv) {
-        if (kv[0] !== null) {
-          obj[kv[0]] = kv[1];
-        }
-        return obj;
-      },
-      {}
-    );
+    const result = {}
+    for (const i in namesOnly) {
+      const name = namesOnly[i]
+      if (name === null) continue;
+      result[name] = parsed[i]
+    }
+    return result
   });
 }
 
@@ -256,25 +235,15 @@ function doubleLE() {
   });
 }
 
-function toArray(arrLike) {
-  return Array.prototype.slice.call(arrLike);
-}
-// -*- Helpers -*-
-
 function isParser(obj) {
   return obj instanceof Parsimmon;
-}
-
-function isBuffer(x) {
-  /* global Buffer */
-  return bufferExists() && Buffer.isBuffer(x);
 }
 
 function makeSuccess(index, value) {
   return {
     status: true,
-    index: index,
-    value: value,
+    index,
+    value,
     furthest: -1,
     expected: []
   };
@@ -316,7 +285,7 @@ function mergeReplies(result, last) {
 // Hold a simple memoize for the last value
 var lastLineColumnIndex = {};
 function makeLineColumnIndex(input, i) {
-  if (isBuffer(input)) {
+  if (Buffer.isBuffer(input)) {
     return {
       offset: i,
       line: -1,
@@ -489,7 +458,7 @@ function formatGot(input, error) {
     return "Got the end of the input";
   }
 
-  if (isBuffer(input)) {
+  if (Buffer.isBuffer(input)) {
     var byteLineWithErrorIndex = i - (i % bytesPerLine);
     var columnByteIndex = i - byteLineWithErrorIndex;
     var byteRange = rangeFromIndexAndOffsets(
@@ -547,7 +516,7 @@ function formatGot(input, error) {
 
   var lineWithErrorCurrentIndex = lineWithErrorIndex - lineRange.from;
 
-  if (isBuffer(input)) {
+  if (Buffer.isBuffer(input)) {
     lastLineNumberLabelLength = (
       (lineRange.to > 0 ? lineRange.to - 1 : lineRange.to) * 8
     ).toString(16).length;
@@ -563,7 +532,7 @@ function formatGot(input, error) {
       var prefix = isLineWithError ? "> " : defaultLinePrefix;
       var lineNumberLabel;
 
-      if (isBuffer(input)) {
+      if (Buffer.isBuffer(input)) {
         lineNumberLabel = ((lineRange.from + index) * 8).toString(16).padStart(lastLineNumberLabelLength, "0");
       } else {
         lineNumberLabel = (lineRange.from + index + 1).toString().padStart(lastLineNumberLabelLength, " ");
@@ -739,7 +708,7 @@ function sepBy1(parser, separator) {
 // -*- Core Parsing Methods -*-
 
 Parsimmon.prototype.parse = function(input) {
-  if (typeof input !== "string" && !isBuffer(input)) {
+  if (typeof input !== "string" && !Buffer.isBuffer(input)) {
     throw new Error(
       ".parse must be called with a string or Buffer as its argument"
     );
