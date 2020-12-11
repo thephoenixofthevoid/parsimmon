@@ -453,13 +453,6 @@ function formatExpected(expected) {
   return "Expected one of the following: \n\n" + expected.join(", ");
 }
 
-function leftPad(str, pad, char) {
-  var add = pad - str.length;
-  if (add <= 0) {
-    return str;
-  }
-  return repeat(char, add) + str;
-}
 
 function toChunks(arr, chunkSize) {
   var length = arr.length;
@@ -540,7 +533,7 @@ function formatGot(input, error) {
     var byteLines = bytesInChunks.map(function(byteRow) {
       return byteRow.map(function(byteValue) {
         // Prefix byte values with a `0` if they are shorter than 2 characters.
-        return leftPad(byteValue.toString(16), 2, "0");
+        return byteValue.toString(16).padStart(2, '0')
       });
     });
 
@@ -600,17 +593,9 @@ function formatGot(input, error) {
       var lineNumberLabel;
 
       if (isBuffer(input)) {
-        lineNumberLabel = leftPad(
-          ((lineRange.from + index) * 8).toString(16),
-          lastLineNumberLabelLength,
-          "0"
-        );
+        lineNumberLabel = ((lineRange.from + index) * 8).toString(16).padStart(lastLineNumberLabelLength, "0");
       } else {
-        lineNumberLabel = leftPad(
-          (lineRange.from + index + 1).toString(),
-          lastLineNumberLabelLength,
-          " "
-        );
+        lineNumberLabel = (lineRange.from + index + 1).toString().padStart(lastLineNumberLabelLength, " ");
       }
 
       return [].concat(
@@ -619,9 +604,8 @@ function formatGot(input, error) {
         isLineWithError
           ? [
               defaultLinePrefix +
-                repeat(" ", lastLineNumberLabelLength) +
-                " | " +
-                leftPad("", column, " ") +
+                repeat(" ", lastLineNumberLabelLength) + " | " +
+                repeat(" ", column) +
                 repeat("^", verticalMarkerLength)
             ]
           : []
@@ -634,15 +618,11 @@ function formatGot(input, error) {
 }
 
 function formatError(input, error) {
-  return [
-    "\n",
-    "-- PARSING FAILED " + repeat("-", 50),
-    "\n\n",
-    formatGot(input, error),
-    "\n\n",
-    formatExpected(error.expected),
-    "\n"
-  ].join("");
+  return `\n-- PARSING FAILED ${repeat("-", 50)}\n\n${
+    formatGot(input, error)
+  }\n\n${
+    formatExpected(error.expected)
+  }\n`
 }
 
 function flags(re) {
