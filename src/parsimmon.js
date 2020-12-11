@@ -9,38 +9,8 @@ function Parsimmon(action) {
 
 var _ = Parsimmon.prototype;
 
-function times(n, f) {
-  var i = 0;
-  for (i; i < n; i++) {
-    f(i);
-  }
-}
-
-function forEach(f, arr) {
-  times(arr.length, function(i) {
-    f(arr[i], i, arr);
-  });
-}
-
-function reduce(f, seed, arr) {
-  forEach(function(elem, i, arr) {
-    seed = f(seed, elem, i, arr);
-  }, arr);
-  return seed;
-}
-
-function map(f, arr) {
-  return reduce(
-    function(acc, elem, i, a) {
-      return acc.concat([f(elem, i, a)]);
-    },
-    [],
-    arr
-  );
-}
-
 function lshiftBuffer(input) {
-  var asTwoBytes = reduce(
+  var asTwoBytes = input.reduce(
     function(a, v, i, b) {
       return a.concat(
         i === b.length - 1
@@ -48,25 +18,24 @@ function lshiftBuffer(input) {
           : b.readUInt16BE(i)
       );
     },
-    [],
-    input
+    []
   );
   return Buffer.from(
-    map(function(x) {
+    asTwoBytes.map(function(x) {
       return ((x << 1) & 0xffff) >> 8;
-    }, asTwoBytes)
+    })
   );
 }
 
 function consumeBitsFromBuffer(n, input) {
-  var state = { v: 0, buf: input };
-  times(n, function() {
-    state = {
-      v: (state.v << 1) | bitPeekBuffer(state.buf),
-      buf: lshiftBuffer(state.buf)
-    };
-  });
-  return state;
+  var v = 0, buf = input
+
+  while (n-- > 0) {
+    v = (v << 1) | bitPeekBuffer(buf)
+    buf = lshiftBuffer(buf)
+  }
+
+  return { v, buf }
 }
 
 function bitPeekBuffer(input) {
@@ -74,23 +43,13 @@ function bitPeekBuffer(input) {
 }
 
 function sum(numArr) {
-  return reduce(
-    function(x, y) {
-      return x + y;
-    },
-    0,
-    numArr
-  );
+  var sum = 0;
+  for (let v of numArr) sum += v;
+  return sum
 }
 
 function find(pred, arr) {
-  return reduce(
-    function(found, elem) {
-      return found || (pred(elem) ? elem : found);
-    },
-    null,
-    arr
-  );
+  return arr.find(pred)
 }
 
 function bufferExists() {
@@ -144,7 +103,7 @@ function bitSeq(alignments) {
     }
     return makeSuccess(
       newPos,
-      reduce(
+      alignments.reduce(
         function(acc, bits) {
           var state = consumeBitsFromBuffer(bits, acc.buf);
           return {
@@ -153,7 +112,7 @@ function bitSeq(alignments) {
           };
         },
         { coll: [], buf: input.slice(i, newPos) },
-        alignments
+        
       ).coll
     );
   });
@@ -163,7 +122,7 @@ function bitSeqObj(namedAlignments) {
   ensureBuffer();
   var seenKeys = {};
   var totalKeys = 0;
-  var fullAlignments = map(function(item) {
+  var fullAlignments = namedAlignments.map(function(item) {
     if (isArray(item)) {
       var pair = item;
       if (pair.length !== 2) {
@@ -186,7 +145,7 @@ function bitSeqObj(namedAlignments) {
       assertNumber(item);
       return [null, item];
     }
-  }, namedAlignments);
+  });
   if (totalKeys < 1) {
     throw new Error(
       "bitSeqObj expects at least one named pair, got [" +
@@ -194,27 +153,26 @@ function bitSeqObj(namedAlignments) {
         "]"
     );
   }
-  var namesOnly = map(function(pair) {
+  var namesOnly = fullAlignments.map(function(pair) {
     return pair[0];
-  }, fullAlignments);
-  var alignmentsOnly = map(function(pair) {
+  });
+  var alignmentsOnly = fullAlignments.map(function(pair) {
     return pair[1];
-  }, fullAlignments);
+  });
 
   return bitSeq(alignmentsOnly).map(function(parsed) {
-    var namedParsed = map(function(name, i) {
+    var namedParsed = namesOnly.map(function(name, i) {
       return [name, parsed[i]];
-    }, namesOnly);
+    });
 
-    return reduce(
+    return namedParsed.reduce(
       function(obj, kv) {
         if (kv[0] !== null) {
           obj[kv[0]] = kv[1];
         }
         return obj;
       },
-      {},
-      namedParsed
+      {}
     );
   });
 }
@@ -584,12 +542,12 @@ function formatGot(input, error) {
     var bytes = input.slice(byteRange.from, byteRange.to);
     var bytesInChunks = toChunks(bytes.toJSON().data, bytesPerLine);
 
-    var byteLines = map(function(byteRow) {
-      return map(function(byteValue) {
+    var byteLines = bytesInChunks.map(function(byteRow) {
+      return byteRow.map(function(byteValue) {
         // Prefix byte values with a `0` if they are shorter than 2 characters.
         return leftPad(byteValue.toString(16), 2, "0");
-      }, byteRow);
-    }, bytesInChunks);
+      });
+    });
 
     lineRange = byteRangeToRange(byteRange);
     lineWithErrorIndex = byteLineWithErrorIndex / bytesPerLine;
@@ -601,11 +559,11 @@ function formatGot(input, error) {
     }
 
     verticalMarkerLength = 2;
-    lines = map(function(byteLine) {
+    lines = byteLines.map(function(byteLine) {
       return byteLine.length <= 4
         ? byteLine.join(" ")
         : byteLine.slice(0, 4).join(" ") + "  " + byteLine.slice(4).join(" ");
-    }, byteLines);
+    });
     lastLineNumberLabelLength = (
       (lineRange.to > 0 ? lineRange.to - 1 : lineRange.to) * 8
     ).toString(16).length;
@@ -640,7 +598,7 @@ function formatGot(input, error) {
     }
   }
 
-  var linesWithLineNumbers = reduce(
+  var linesWithLineNumbers = lines.reduce(
     function(acc, lineSource, index) {
       var isLineWithError = index === lineWithErrorCurrentIndex;
       var prefix = isLineWithError ? "> " : defaultLinePrefix;
@@ -674,8 +632,7 @@ function formatGot(input, error) {
           : []
       );
     },
-    [],
-    lines
+    []
   );
 
   return linesWithLineNumbers.join("\n");
