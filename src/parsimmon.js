@@ -87,9 +87,7 @@ function bitSeq(alignments) {
   }
   var bytes = totalBits / 8;
 
-  var tooBigRange = find(function(x) {
-    return x > 48;
-  }, alignments);
+  var tooBigRange = alignments.find(x => x > 48);
   if (tooBigRange) {
     throw new Error(
       tooBigRange + " bit range requested exceeds 48 bit (6 byte) Number max."
@@ -123,7 +121,7 @@ function bitSeqObj(namedAlignments) {
   var seenKeys = {};
   var totalKeys = 0;
   var fullAlignments = namedAlignments.map(function(item) {
-    if (isArray(item)) {
+    if (Array.isArray(item)) {
       var pair = item;
       if (pair.length !== 2) {
         throw new Error(
@@ -153,12 +151,13 @@ function bitSeqObj(namedAlignments) {
         "]"
     );
   }
-  var namesOnly = fullAlignments.map(function(pair) {
-    return pair[0];
-  });
-  var alignmentsOnly = fullAlignments.map(function(pair) {
-    return pair[1];
-  });
+  var namesOnly = []
+  var alignmentsOnly = []
+
+  for (const [ name, align ] of fullAlignments) {
+    namesOnly.push(name)
+    alignmentsOnly.push(align)
+  }
 
   return bitSeq(alignmentsOnly).map(function(parsed) {
     var namedParsed = namesOnly.map(function(name, i) {
@@ -270,10 +269,6 @@ function isParser(obj) {
   return obj instanceof Parsimmon;
 }
 
-function isArray(x) {
-  return {}.toString.call(x) === "[object Array]";
-}
-
 function isBuffer(x) {
   /* global Buffer */
   return bufferExists() && Buffer.isBuffer(x);
@@ -290,7 +285,7 @@ function makeSuccess(index, value) {
 }
 
 function makeFailure(index, expected) {
-  if (!isArray(expected)) {
+  if (!Array.isArray(expected)) {
     expected = [expected];
   }
   return {
@@ -399,7 +394,7 @@ function get(input, i) {
 
 // TODO[ES5]: Switch to Array.isArray eventually.
 function assertArray(x) {
-  if (!isArray(x)) {
+  if (!Array.isArray(x)) {
     throw new Error("not an array: " + x);
   }
 }
@@ -701,7 +696,7 @@ function seqObj() {
     if (isParser(p)) {
       continue;
     }
-    if (isArray(p)) {
+    if (Array.isArray(p)) {
       var isWellFormed =
         p.length === 2 && typeof p[0] === "string" && isParser(p[1]);
       if (isWellFormed) {
@@ -727,7 +722,7 @@ function seqObj() {
     for (var j = 0; j < numParsers; j += 1) {
       var name;
       var parser;
-      if (isArray(parsers[j])) {
+      if (Array.isArray(parsers[j])) {
         name = parsers[j][0];
         parser = parsers[j][1];
       } else {
@@ -1050,7 +1045,7 @@ Parsimmon.prototype.notFollowedBy = function(x) {
 };
 
 Parsimmon.prototype.desc = function(expected) {
-  if (!isArray(expected)) {
+  if (!Array.isArray(expected)) {
     expected = [expected];
   }
   var self = this;

@@ -46,7 +46,6 @@
     "lint:fix": "prettier --write '{examples,src,test}/**/*.js' webpack.config.js && eslint --fix examples src test webpack.config.js",
     "precoverage": "npm run test",
     "coverage": "nyc report --reporter=text-lcov | coveralls",
-    "pretest": "npm run lint",
     "test": "nyc --reporter=lcov --reporter=text-summary npm run test:mocha",
     "test:mocha": "mocha --reporter dot",
     "test:watch": "mocha --reporter min --watch",
