@@ -952,7 +952,7 @@ function parseBufferFor(other, length) {
 
 
 
-Parsimmon.Binary = {
+const Binary = {
   bitSeq: bitSeq,
   bitSeqObj: bitSeqObj,
   byte: byte,
@@ -979,6 +979,10 @@ Parsimmon.Binary = {
   doubleBE: parseBufferFor("doubleBE", 8).map(buff => buff.readDoubleBE(0)),
   doubleLE: parseBufferFor("doubleLE", 8).map(buff => buff.readDoubleLE(0)),
 };
+
+
+Parsimmon.Binary = Binary; 
+
 
 function ensureBuffer() {
   if (typeof Buffer === "undefined") {
