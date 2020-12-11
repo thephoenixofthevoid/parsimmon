@@ -7,7 +7,7 @@ function Parsimmon(action) {
   this._ = action;
 }
 
-var _ = Parsimmon.prototype;
+
 
 function lshiftBuffer(input) {
   var asTwoBytes = input.reduce(
@@ -812,7 +812,7 @@ function sepBy1(parser, separator) {
 
 // -*- Core Parsing Methods -*-
 
-_.parse = function(input) {
+Parsimmon.prototype.parse = function(input) {
   if (typeof input !== "string" && !isBuffer(input)) {
     throw new Error(
       ".parse must be called with a string or Buffer as its argument"
@@ -834,7 +834,7 @@ _.parse = function(input) {
 
 // -*- Other Methods -*-
 
-_.tryParse = function(str) {
+Parsimmon.prototype.tryParse = function(str) {
   var result = this.parse(str);
   if (result.status) {
     return result.value;
@@ -847,38 +847,38 @@ _.tryParse = function(str) {
   }
 };
 
-_.assert = function(condition, errorMessage) {
+Parsimmon.prototype.assert = function(condition, errorMessage) {
   return this.chain(function(value) {
     return condition(value) ? succeed(value) : fail(errorMessage);
   });
 };
 
-_.or = function(alternative) {
+Parsimmon.prototype.or = function(alternative) {
   return alt(this, alternative);
 };
 
-_.trim = function(parser) {
+Parsimmon.prototype.trim = function(parser) {
   return this.wrap(parser, parser);
 };
 
-_.wrap = function(leftParser, rightParser) {
+Parsimmon.prototype.wrap = function(leftParser, rightParser) {
   return seqMap(leftParser, this, rightParser, function(left, middle) {
     return middle;
   });
 };
 
-_.thru = function(wrapper) {
+Parsimmon.prototype.thru = function(wrapper) {
   return wrapper(this);
 };
 
-_.then = function(next) {
+Parsimmon.prototype.then = function(next) {
   assertParser(next);
   return seq(this, next).map(function(results) {
     return results[1];
   });
 };
 
-_.many = function() {
+Parsimmon.prototype.many = function() {
   var self = this;
 
   return Parsimmon(function(input, i) {
@@ -903,7 +903,7 @@ _.many = function() {
   });
 };
 
-_.tieWith = function(separator) {
+Parsimmon.prototype.tieWith = function(separator) {
   assertString(separator);
   return this.map(function(args) {
     assertArray(args);
@@ -921,11 +921,11 @@ _.tieWith = function(separator) {
   });
 };
 
-_.tie = function() {
+Parsimmon.prototype.tie = function() {
   return this.tieWith("");
 };
 
-_.times = function(min, max) {
+Parsimmon.prototype.times = function(min, max) {
   var self = this;
   if (arguments.length < 2) {
     max = min;
@@ -960,23 +960,23 @@ _.times = function(min, max) {
   });
 };
 
-_.result = function(res) {
+Parsimmon.prototype.result = function(res) {
   return this.map(function() {
     return res;
   });
 };
 
-_.atMost = function(n) {
+Parsimmon.prototype.atMost = function(n) {
   return this.times(0, n);
 };
 
-_.atLeast = function(n) {
+Parsimmon.prototype.atLeast = function(n) {
   return seqMap(this.times(n), this.many(), function(init, rest) {
     return init.concat(rest);
   });
 };
 
-_.map = function(fn) {
+Parsimmon.prototype.map = function(fn) {
   assertFunction(fn);
   var self = this;
   return Parsimmon(function(input, i) {
@@ -988,7 +988,7 @@ _.map = function(fn) {
   });
 };
 
-_.contramap = function(fn) {
+Parsimmon.prototype.contramap = function(fn) {
   assertFunction(fn);
   var self = this;
   return Parsimmon(function(input, i) {
@@ -1000,19 +1000,19 @@ _.contramap = function(fn) {
   });
 };
 
-_.promap = function(f, g) {
+Parsimmon.prototype.promap = function(f, g) {
   assertFunction(f);
   assertFunction(g);
   return this.contramap(f).map(g);
 };
 
-_.skip = function(next) {
+Parsimmon.prototype.skip = function(next) {
   return seq(this, next).map(function(results) {
     return results[0];
   });
 };
 
-_.mark = function() {
+Parsimmon.prototype.mark = function() {
   return seqMap(index, this, index, function(start, value, end) {
     return {
       start: start,
@@ -1022,7 +1022,7 @@ _.mark = function() {
   });
 };
 
-_.node = function(name) {
+Parsimmon.prototype.node = function(name) {
   return seqMap(index, this, index, function(start, value, end) {
     return {
       name: name,
@@ -1033,23 +1033,23 @@ _.node = function(name) {
   });
 };
 
-_.sepBy = function(separator) {
+Parsimmon.prototype.sepBy = function(separator) {
   return sepBy(this, separator);
 };
 
-_.sepBy1 = function(separator) {
+Parsimmon.prototype.sepBy1 = function(separator) {
   return sepBy1(this, separator);
 };
 
-_.lookahead = function(x) {
+Parsimmon.prototype.lookahead = function(x) {
   return this.skip(lookahead(x));
 };
 
-_.notFollowedBy = function(x) {
+Parsimmon.prototype.notFollowedBy = function(x) {
   return this.skip(notFollowedBy(x));
 };
 
-_.desc = function(expected) {
+Parsimmon.prototype.desc = function(expected) {
   if (!isArray(expected)) {
     expected = [expected];
   }
@@ -1063,17 +1063,17 @@ _.desc = function(expected) {
   });
 };
 
-_.fallback = function(result) {
+Parsimmon.prototype.fallback = function(result) {
   return this.or(succeed(result));
 };
 
-_.ap = function(other) {
+Parsimmon.prototype.ap = function(other) {
   return seqMap(other, this, function(f, x) {
     return f(x);
   });
 };
 
-_.chain = function(f) {
+Parsimmon.prototype.chain = function(f) {
   var self = this;
   return Parsimmon(function(input, i) {
     var result = self._(input, i);
@@ -1263,15 +1263,15 @@ function empty() {
   return fail("fantasy-land/empty");
 }
 
-_.concat = _.or;
-_.empty = empty;
-_.of = succeed;
-_["fantasy-land/ap"] = _.ap;
-_["fantasy-land/chain"] = _.chain;
-_["fantasy-land/concat"] = _.concat;
-_["fantasy-land/empty"] = _.empty;
-_["fantasy-land/of"] = _.of;
-_["fantasy-land/map"] = _.map;
+Parsimmon.prototype.concat = Parsimmon.prototype.or;
+Parsimmon.prototype.empty = empty;
+Parsimmon.prototype.of = succeed;
+Parsimmon.prototype["fantasy-land/ap"] = Parsimmon.prototype.ap;
+Parsimmon.prototype["fantasy-land/chain"] = Parsimmon.prototype.chain;
+Parsimmon.prototype["fantasy-land/concat"] = Parsimmon.prototype.concat;
+Parsimmon.prototype["fantasy-land/empty"] = Parsimmon.prototype.empty;
+Parsimmon.prototype["fantasy-land/of"] = Parsimmon.prototype.of;
+Parsimmon.prototype["fantasy-land/map"] = Parsimmon.prototype.map;
 
 // -*- Base Parsers -*-
 
@@ -1297,17 +1297,10 @@ var eof = Parsimmon(function(input, i) {
   return makeSuccess(i, null);
 });
 
-var digit = regexp(/[0-9]/).desc("a digit");
-var digits = regexp(/[0-9]*/).desc("optional digits");
-var letter = regexp(/[a-z]/i).desc("a letter");
-var letters = regexp(/[a-z]*/i).desc("optional letters");
-var optWhitespace = regexp(/\s*/).desc("optional whitespace");
-var whitespace = regexp(/\s+/).desc("whitespace");
 var cr = string("\r");
 var lf = string("\n");
 var crlf = string("\r\n");
 var newline = alt(crlf, lf, cr).desc("newline");
-var end = alt(newline, eof);
 
 Parsimmon.all = all;
 Parsimmon.alt = alt;
@@ -1316,18 +1309,18 @@ Parsimmon.cr = cr;
 Parsimmon.createLanguage = createLanguage;
 Parsimmon.crlf = crlf;
 Parsimmon.custom = custom;
-Parsimmon.digit = digit;
-Parsimmon.digits = digits;
+Parsimmon.digit = regexp(/[0-9]/).desc("a digit");
+Parsimmon.digits = regexp(/[0-9]*/).desc("optional digits");
 Parsimmon.empty = empty;
-Parsimmon.end = end;
+Parsimmon.end = alt(newline, eof);
 Parsimmon.eof = eof;
 Parsimmon.fail = fail;
 Parsimmon.formatError = formatError;
 Parsimmon.index = index;
 Parsimmon.isParser = isParser;
 Parsimmon.lazy = lazy;
-Parsimmon.letter = letter;
-Parsimmon.letters = letters;
+Parsimmon.letter = regexp(/[a-z]/i).desc("a letter");
+Parsimmon.letters = regexp(/[a-z]*/i).desc("optional letters");
 Parsimmon.lf = lf;
 Parsimmon.lookahead = lookahead;
 Parsimmon.makeFailure = makeFailure;
@@ -1337,7 +1330,7 @@ Parsimmon.noneOf = noneOf;
 Parsimmon.notFollowedBy = notFollowedBy;
 Parsimmon.of = succeed;
 Parsimmon.oneOf = oneOf;
-Parsimmon.optWhitespace = optWhitespace;
+Parsimmon.optWhitespace = regexp(/\s*/).desc("optional whitespace");
 Parsimmon.Parser = Parsimmon;
 Parsimmon.range = range;
 Parsimmon.regex = regexp;
@@ -1351,7 +1344,7 @@ Parsimmon.string = string;
 Parsimmon.succeed = succeed;
 Parsimmon.takeWhile = takeWhile;
 Parsimmon.test = test;
-Parsimmon.whitespace = whitespace;
+Parsimmon.whitespace = regexp(/\s+/).desc("whitespace");
 Parsimmon["fantasy-land/empty"] = empty;
 Parsimmon["fantasy-land/of"] = succeed;
 
