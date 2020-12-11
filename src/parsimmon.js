@@ -48,10 +48,6 @@ function sum(numArr) {
   return sum
 }
 
-function find(pred, arr) {
-  return arr.find(pred)
-}
-
 function bufferExists() {
   return typeof Buffer !== "undefined";
 }
@@ -350,33 +346,8 @@ function makeLineColumnIndex(input, i) {
 
 // Returns the sorted set union of two arrays of strings
 function union(xs, ys) {
-  // for newer browsers/node we can improve performance by using
-  // modern JS
-  if (setExists() && Array.from) {
-    // eslint-disable-next-line no-undef
-    var set = new Set(xs);
-    for (var y = 0; y < ys.length; y++) {
-      set.add(ys[y]);
-    }
-    var arr = Array.from(set);
-    arr.sort();
-    return arr;
-  }
-  var obj = {};
-  for (var i = 0; i < xs.length; i++) {
-    obj[xs[i]] = true;
-  }
-  for (var j = 0; j < ys.length; j++) {
-    obj[ys[j]] = true;
-  }
-  var keys = [];
-  for (var k in obj) {
-    if ({}.hasOwnProperty.call(obj, k)) {
-      keys.push(k);
-    }
-  }
-  keys.sort();
-  return keys;
+  const temp = new Set([ ...xs, ...ys ])
+  return Array.from(temp).sort();
 }
 
 function assertParser(p) {
@@ -727,15 +698,9 @@ function seqMap(...args) {
 // TODO[ES5]: Revisit this with Object.keys and .bind.
 function createLanguage(parsers) {
   var language = {};
-  for (var key in parsers) {
-    if ({}.hasOwnProperty.call(parsers, key)) {
-      (function(key) {
-        var func = function() {
-          return parsers[key](language);
-        };
-        language[key] = lazy(func);
-      })(key);
-    }
+  for (const key of Object.getOwnPropertyNames(parsers)) {
+    const parser = parsers[key]
+    language[key] = lazy(() => parser(language))
   }
   return language;
 }
@@ -922,9 +887,7 @@ Parsimmon.prototype.times = function(min, max) {
 };
 
 Parsimmon.prototype.result = function(res) {
-  return this.map(function() {
-    return res;
-  });
+  return this.map(() => res);
 };
 
 Parsimmon.prototype.atMost = function(n) {
