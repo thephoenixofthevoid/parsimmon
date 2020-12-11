@@ -10,21 +10,20 @@ function Parsimmon(action) {
 
 
 function lshiftBuffer(input) {
-  var asTwoBytes = input.reduce(
-    function(a, v, i, b) {
-      return a.concat(
-        i === b.length - 1
-          ? Buffer.from([v, 0]).readUInt16BE(0)
-          : b.readUInt16BE(i)
-      );
-    },
-    []
-  );
-  return Buffer.from(
-    asTwoBytes.map(function(x) {
-      return ((x << 1) & 0xffff) >> 8;
-    })
-  );
+  var asTwoBytes = []
+  
+  input.forEach(function(v, i, b) {
+    let x;
+    if (i === b.length - 1) {
+      x = Buffer.from([v, 0]).readUInt16BE(0)
+    } else {
+      x = b.readUInt16BE(i)
+    }
+
+    asTwoBytes.push(((x << 1) & 0xffff) >> 8);
+  });
+
+  return Buffer.from(asTwoBytes);
 }
 
 function consumeBitsFromBuffer(n, input) {
@@ -743,9 +742,7 @@ Parsimmon.prototype.tryParse = function(str) {
 };
 
 Parsimmon.prototype.assert = function(condition, errorMessage) {
-  return this.chain(function(value) {
-    return condition(value) ? succeed(value) : fail(errorMessage);
-  });
+  return this.chain(v => condition(v) ? succeed(v) : fail(errorMessage));
 };
 
 Parsimmon.prototype.or = function(alternative) {
@@ -768,9 +765,7 @@ Parsimmon.prototype.thru = function(wrapper) {
 
 Parsimmon.prototype.then = function(next) {
   assertParser(next);
-  return seq(this, next).map(function(results) {
-    return results[1];
-  });
+  return seq(this, next).map(A => A[1]);
 };
 
 Parsimmon.prototype.many = function() {
@@ -802,17 +797,8 @@ Parsimmon.prototype.tieWith = function(separator) {
   assertString(separator);
   return this.map(function(args) {
     assertArray(args);
-    if (args.length) {
-      assertString(args[0]);
-      var s = args[0];
-      for (var i = 1; i < args.length; i++) {
-        assertString(args[i]);
-        s += separator + args[i];
-      }
-      return s;
-    } else {
-      return "";
-    }
+    args.forEach(assertString)
+    return args.join(separator)
   });
 };
 
@@ -961,9 +947,7 @@ Parsimmon.prototype.fallback = function(result) {
 };
 
 Parsimmon.prototype.ap = function(other) {
-  return seqMap(other, this, function(f, x) {
-    return f(x);
-  });
+  return seqMap(other, this, (f, x) => f(x));
 };
 
 Parsimmon.prototype.chain = function(f) {
@@ -982,15 +966,11 @@ Parsimmon.prototype.chain = function(f) {
 
 function string(str) {
   assertString(str);
-  var expected = "'" + str + "'";
   return Parsimmon(function(input, i) {
-    var j = i + str.length;
-    var head = input.slice(i, j);
-    if (head === str) {
-      return makeSuccess(j, head);
-    } else {
-      return makeFailure(i, expected);
-    }
+    const head = input.slice(i, i + str.length)
+    if (head !== str)
+      return makeFailure(i, `'${str}'`);
+    return makeSuccess(i + str.length, str);
   });
 }
 
@@ -1017,28 +997,20 @@ function byte(b) {
   });
 }
 
-function regexp(re, group) {
+function regexp(re, group = 0) {
   assertRegexp(re);
-  if (arguments.length >= 2) {
-    assertNumber(group);
-  } else {
-    group = 0;
-  }
+  assertNumber(group);
+
   var anchored = anchoredRegexp(re);
-  var expected = "" + re;
+
   return Parsimmon(function(input, i) {
     var match = anchored.exec(input.slice(i));
-    if (match) {
-      if (0 <= group && group <= match.length) {
-        var fullMatch = match[0];
-        var groupMatch = match[group];
-        return makeSuccess(i + fullMatch.length, groupMatch);
-      }
-      var message =
-        "valid match group (0 to " + match.length + ") in " + expected;
-      return makeFailure(i, message);
+    if (!match) return makeFailure(i, "" + re);
+    
+    if (0 <= group && group <= match.length) {
+      return makeSuccess(i + match[0].length, match[group]);
     }
-    return makeFailure(i, expected);
+    return makeFailure(i, `valid match group (0 to ${match.length}) in ${re}`);
   });
 }
 
