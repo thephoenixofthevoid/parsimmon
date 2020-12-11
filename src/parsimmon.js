@@ -645,16 +645,13 @@ function anchoredRegexp(re) {
 
 // -*- Combinators -*-
 
-function seq() {
-  var parsers = [].slice.call(arguments);
-  var numParsers = parsers.length;
-  for (var j = 0; j < numParsers; j += 1) {
-    assertParser(parsers[j]);
-  }
+function seq(...parsers) {
+  parsers.forEach(assertParser)
+
   return Parsimmon(function(input, i) {
     var result;
-    var accum = new Array(numParsers);
-    for (var j = 0; j < numParsers; j += 1) {
+    var accum = new Array(parsers.length);
+    for (var j = 0; j < parsers.length; j += 1) {
       result = mergeReplies(parsers[j]._(input, i), result);
       if (!result.status) {
         return result;
@@ -666,28 +663,22 @@ function seq() {
   });
 }
 
-function seqObj() {
+function seqObj(...parsers) {
   var seenKeys = {};
   var totalKeys = 0;
-  var parsers = toArray(arguments);
-  var numParsers = parsers.length;
-  for (var j = 0; j < numParsers; j += 1) {
+
+  for (var j = 0; j < parsers.length; j += 1) {
     var p = parsers[j];
     if (isParser(p)) {
       continue;
     }
-    if (Array.isArray(p)) {
-      var isWellFormed =
-        p.length === 2 && typeof p[0] === "string" && isParser(p[1]);
-      if (isWellFormed) {
-        var key = p[0];
-        if (Object.prototype.hasOwnProperty.call(seenKeys, key)) {
-          throw new Error("seqObj: duplicate key " + key);
-        }
-        seenKeys[key] = true;
-        totalKeys++;
-        continue;
+    if (Array.isArray(p) && p.length === 2 && typeof p[0] === "string" && isParser(p[1])) {
+      if (Object.prototype.hasOwnProperty.call(seenKeys, p[0])) {
+        throw new Error("seqObj: duplicate key " + p[0]);
       }
+      seenKeys[p[0]] = true;
+      totalKeys++;
+      continue;
     }
     throw new Error(
       "seqObj arguments must be parsers or [string, parser] array pairs."
@@ -699,7 +690,7 @@ function seqObj() {
   return Parsimmon(function(input, i) {
     var result;
     var accum = {};
-    for (var j = 0; j < numParsers; j += 1) {
+    for (var j = 0; j < parsers.length; j += 1) {
       var name;
       var parser;
       if (Array.isArray(parsers[j])) {
@@ -722,8 +713,7 @@ function seqObj() {
   });
 }
 
-function seqMap() {
-  var args = [].slice.call(arguments);
+function seqMap(...args) {
   if (args.length === 0) {
     throw new Error("seqMap needs at least one argument");
   }
@@ -750,14 +740,10 @@ function createLanguage(parsers) {
   return language;
 }
 
-function alt() {
-  var parsers = [].slice.call(arguments);
-  var numParsers = parsers.length;
-  if (numParsers === 0) {
+function alt(...parsers) {
+  parsers.forEach(assertParser)
+  if (parsers.length === 0) {
     return fail("zero alternates");
-  }
-  for (var j = 0; j < numParsers; j += 1) {
-    assertParser(parsers[j]);
   }
   return Parsimmon(function(input, i) {
     var result;
