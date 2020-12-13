@@ -1,3 +1,5 @@
 --ui tdd
 test/setup.js
-test/**/*.test.js
+test/core/*.test.js
+test/laws/*.test.js
+--test/buffer/*.test.js
