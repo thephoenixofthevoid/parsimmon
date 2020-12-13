@@ -269,11 +269,11 @@ const linesAfterStringError = 3;
 
 
 // Get a range of indexes including `i`-th element and `before` and `after` amount of elements from `arr`.
-function rangeFromIndexAndOffsets(i, before, after, length) {
+function rangeFromIndexAndOffsets(index, before, after, length) {
   // Guard against the negative upper bound for lines included in the output.
-  let from  = Math.max(i - before, 0);
-  let to = Math.min(i + after, length);
-  return { from, to }
+  let from  = Math.max(index - before, 0);
+  let to = Math.min(index + after, length);
+  return { from, index, to }
 }
 
 
@@ -281,62 +281,38 @@ function rangeFromIndexAndOffsets(i, before, after, length) {
 
 
 function formatGot_string(input, error) {
-  var inputLines = input.split(/\r\n|[\n\r\u2028\u2029]/);
-  var column = error.index.column - 1;
-  var lineWithErrorIndex = error.index.line - 1;
-  var lineRange = rangeFromIndexAndOffsets(lineWithErrorIndex, linesBeforeStringError, linesAfterStringError, inputLines.length);
-  var lines = inputLines.slice(lineRange.from, lineRange.to);
-  var lastLineNumberLabelLength = lineRange.to.toString().length;
+  const inputLines = input.split(/\r\n|[\n\r\u2028\u2029]/);
+  const column = error.index.column - 1;
+  const lineWithErrorIndex = error.index.line - 1;
+  const range = rangeFromIndexAndOffsets(lineWithErrorIndex, linesBeforeStringError, linesAfterStringError, inputLines.length);
+  const lines = inputLines.slice(range.from, range.to);
+  const labelWidth = range.to.toString().length;
+  const errorLine = " ".repeat(labelWidth) + " | " + " ".repeat(column) + "^";
 
-  return {
-    verticalMarkerLength: 1,
-    column,
-    lineWithErrorIndex,
-    lineRange,
-    lines, 
-    lastLineNumberLabelLength
-  }
+  return { range, lines, errorLine, labelWidth }
 }
 
 
+// TODO lineNumberLabel for binary case
 function formatGot(input, error) {
   if (error.index.offset === input.length) {
     return "Got the end of the input";
   }
 
-  var {
-    verticalMarkerLength,
-    column,
-    lineWithErrorIndex,
-    lineRange,
-    lines, 
-    lastLineNumberLabelLength
-  } = formatGot_string(input, error) //Buffer.isBuffer(input) ? formatGot_binary(input, error) : formatGot_string(input, error);
-
+  var { range, lines, errorLine, labelWidth } = formatGot_string(input, error) //Buffer.isBuffer(input) ? formatGot_binary(input, error) : formatGot_string(input, error);
   var linesWithLineNumbers = []
 
-  const lineNumberSpace = " ".repeat(lastLineNumberLabelLength)
-  const lineMarker = " ".repeat(column) + "^".repeat(verticalMarkerLength)
-  const errorLine = "  " + lineNumberSpace + " | " + lineMarker;
+  for (let line = range.from; line < range.to; line++) {
+    const lineNumberLabel = (line + 1).toString(10).padStart(labelWidth, " ");
+    const sourceLine = lineNumberLabel + " | " + lines[line - range.from];
 
-  for (let index = 0; index < lines.length; index++) {
-    const lineSource = lines[index];
-    const line = lineRange.from + index;
-    let lineNumberLabel;
-    if (Buffer.isBuffer(input)) {
-      lineNumberLabel = (line * 8).toString(16).padStart(lastLineNumberLabelLength, "0");
+    if (line === range.index) {
+      linesWithLineNumbers.push("> " + sourceLine)
+      linesWithLineNumbers.push("  " + errorLine)
     } else {
-      lineNumberLabel = (line + 1).toString(10).padStart(lastLineNumberLabelLength, " ");
+      linesWithLineNumbers.push("  " + sourceLine)
     }
-
-    if (line === lineWithErrorIndex) {
-      linesWithLineNumbers.push("> " + lineNumberLabel + " | " + lineSource, errorLine)
-    } else {
-      linesWithLineNumbers.push("  " + lineNumberLabel + " | " + lineSource)
-    }
-
   }
-
 
   return linesWithLineNumbers.join("\n");
 }
