@@ -270,11 +270,10 @@ const linesAfterStringError = 3;
 
 // Get a range of indexes including `i`-th element and `before` and `after` amount of elements from `arr`.
 function rangeFromIndexAndOffsets(i, before, after, length) {
-  return {
-    // Guard against the negative upper bound for lines included in the output.
-    from: i - before > 0 ? i - before : 0,
-    to: i + after > length ? length : i + after
-  };
+  // Guard against the negative upper bound for lines included in the output.
+  let from  = Math.max(i - before, 0);
+  let to = Math.min(i + after, length);
+  return { from, to }
 }
 
 
