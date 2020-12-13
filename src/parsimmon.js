@@ -342,8 +342,7 @@ Parsimmon.seq = function seq(...parsers) {
 
 
 function validateSeqObjParams(parsers) {
-  var seenKeys = {};
-  var totalKeys = 0;
+  var seenKeys = new Set()
 
   for (var j = 0; j < parsers.length; j += 1) {
     var p = parsers[j];
@@ -351,18 +350,17 @@ function validateSeqObjParams(parsers) {
       continue;
     }
     if (Array.isArray(p) && p.length === 2 && typeof p[0] === "string" && Parsimmon.isParser(p[1])) {
-      if (Object.prototype.hasOwnProperty.call(seenKeys, p[0])) {
+      if (seenKeys.has(p[0])) {
         throw new Error("seqObj: duplicate key " + p[0]);
       }
-      seenKeys[p[0]] = true;
-      totalKeys++;
+      seenKeys.add(p[0])
       continue;
     }
     throw new Error(
       "seqObj arguments must be parsers or [string, parser] array pairs."
     );
   }
-  if (totalKeys === 0) {
+  if (seenKeys.size === 0) {
     throw new Error("seqObj expects at least one named parser, found zero");
   }
 }
@@ -370,7 +368,7 @@ function validateSeqObjParams(parsers) {
 
 Parsimmon.seqObj = function seqObj(...parsers) {
   validateSeqObjParams(parsers)
-  
+
   return new Parsimmon(function (input, i) {
     var result;
     var accum = {};
