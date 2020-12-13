@@ -193,30 +193,15 @@ function makeLineColumnIndexBinary(input, i) {
   return { offset: i, line: -1, column: -1 };
 }
 
-// Hold a simple memoize for the last value
-var lastLineColumnIndex = {};
-
-function makeLineColumnIndexString(input, i) {
-  // if we are calling this function with the same arguments as last time
-  // return the memoized value to prevent expensive processing below
-  if (lastLineColumnIndex.input === input && lastLineColumnIndex.i === i) {
-    console.log("\nHit\n")
-    return lastLineColumnIndex.value;
-  } else {
-    console.log("\nMiss\n")
-  }
-  var lines = input.slice(0, i).split("\n");
+function makeLineColumnIndexString(input, offset) {
+  var lines = input.slice(0, offset).split("\n");
   // Note that unlike the character offset, the line and column offsets are
   // 1-based.
-  var value = {
-    offset: i,
+  return {
+    offset,
     line: lines.length,
     column: lines[lines.length - 1].length + 1
   };
-  lastLineColumnIndex.input = input;
-  lastLineColumnIndex.i = i;
-  lastLineColumnIndex.value = value;
-  return value;
 }
 
 function makeLineColumnIndex(input, i) {
