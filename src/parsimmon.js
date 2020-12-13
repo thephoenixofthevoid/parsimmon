@@ -281,7 +281,6 @@ function rangeFromIndexAndOffsets(i, before, after, length) {
 
 
 function formatGot_string(input, error) {
-  var verticalMarkerLength = 1;
   var inputLines = input.split(/\r\n|[\n\r\u2028\u2029]/);
   var column = error.index.column - 1;
   var lineWithErrorIndex = error.index.line - 1;
@@ -290,7 +289,7 @@ function formatGot_string(input, error) {
   var lastLineNumberLabelLength = lineRange.to.toString().length;
 
   return {
-    verticalMarkerLength,
+    verticalMarkerLength: 1,
     column,
     lineWithErrorIndex,
     lineRange,
@@ -320,23 +319,24 @@ function formatGot(input, error) {
   const lineMarker = " ".repeat(column) + "^".repeat(verticalMarkerLength)
   const errorLine = "  " + lineNumberSpace + " | " + lineMarker;
 
-  lines.forEach(
-    function (lineSource, index) {
-      const line = lineRange.from + index;
-
-      if (Buffer.isBuffer(input)) {
-        var lineNumberLabel = (line * 8).toString(16).padStart(lastLineNumberLabelLength, "0");
-      } else {
-        var lineNumberLabel = (line + 1).toString(10).padStart(lastLineNumberLabelLength, " ");
-      }
-
-      if (line === lineWithErrorIndex) {
-        linesWithLineNumbers.push("> " + lineNumberLabel + " | " + lineSource, errorLine)
-      } else {
-        linesWithLineNumbers.push("  " + lineNumberLabel + " | " + lineSource)
-      }
+  for (let index = 0; index < lines.length; index++) {
+    const lineSource = lines[index];
+    const line = lineRange.from + index;
+    let lineNumberLabel;
+    if (Buffer.isBuffer(input)) {
+      lineNumberLabel = (line * 8).toString(16).padStart(lastLineNumberLabelLength, "0");
+    } else {
+      lineNumberLabel = (line + 1).toString(10).padStart(lastLineNumberLabelLength, " ");
     }
-  );
+
+    if (line === lineWithErrorIndex) {
+      linesWithLineNumbers.push("> " + lineNumberLabel + " | " + lineSource, errorLine)
+    } else {
+      linesWithLineNumbers.push("  " + lineNumberLabel + " | " + lineSource)
+    }
+
+  }
+
 
   return linesWithLineNumbers.join("\n");
 }
