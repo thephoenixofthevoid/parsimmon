@@ -20,7 +20,7 @@ testSetScenario(function() {
       });
     });
 
-    it("works on legacy browsers without Regexp.flags property with flags", function() {
+    it.skip("works on legacy browsers without Regexp.flags property with flags", function() {
       var oldRegExpG = new RegExp("a", "g");
       var oldRegExpI = new RegExp("a", "i");
       var oldRegExpM = new RegExp("a", "m");
@@ -57,7 +57,7 @@ testSetScenario(function() {
       });
     });
 
-    it("works on legacy browsers without Regexp.flags property without flags", function() {
+    it.skip("works on legacy browsers without Regexp.flags property without flags", function() {
       var oldRegExp = new RegExp("a", "");
 
       // Simulate old RegExp without the flags property

@@ -235,7 +235,7 @@ function assertRegexp(x) {
   if (!(x instanceof RegExp)) {
     throw new Error("not a regexp: " + x);
   }
-  var f = flags(x);
+  var f = x.flags;
   for (var i = 0; i < f.length; i++) {
     var c = f.charAt(i);
     // Only allow regexp flags [imus] for now, since [g] and [y] specifically
@@ -318,22 +318,8 @@ function formatGot(input, error) {
 }
 
 
-function flags(re) {
-  if (re.flags !== undefined) {
-    return re.flags;
-  }
-  // legacy browser support
-  return [
-    re.global ? "g" : "",
-    re.ignoreCase ? "i" : "",
-    re.multiline ? "m" : "",
-    re.unicode ? "u" : "",
-    re.sticky ? "y" : ""
-  ].join("");
-}
-
 function anchoredRegexp(re) {
-  return RegExp("^(?:" + re.source + ")", flags(re));
+  return RegExp("^(?:" + re.source + ")", re.flags);
 }
 
 // -*- Combinators -*-
