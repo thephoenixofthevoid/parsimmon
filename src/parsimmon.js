@@ -340,7 +340,8 @@ Parsimmon.seq = function seq(...parsers) {
   });
 }
 
-Parsimmon.seqObj = function seqObj(...parsers) {
+
+function validateSeqObjParams(parsers) {
   var seenKeys = {};
   var totalKeys = 0;
 
@@ -364,6 +365,12 @@ Parsimmon.seqObj = function seqObj(...parsers) {
   if (totalKeys === 0) {
     throw new Error("seqObj expects at least one named parser, found zero");
   }
+}
+
+
+Parsimmon.seqObj = function seqObj(...parsers) {
+  validateSeqObjParams(parsers)
+  
   return new Parsimmon(function (input, i) {
     var result;
     var accum = {};
@@ -419,9 +426,7 @@ Parsimmon.alt = function alt(...parsers) {
     var result;
     for (var j = 0; j < parsers.length; j += 1) {
       result = mergeReplies(parsers[j]._(input, i), result);
-      if (result.status) {
-        return result;
-      }
+      if (result.status) break;
     }
     return result;
   });
