@@ -10,7 +10,7 @@ testSetScenario(function() {
 
     it("asserts that a parser was given", function() {
       assert.throws(function() {
-        Parsimmon.string("x").skip("not a parser");
+        Parsimmon.string("x").skip(null); // "not a parser"
       });
     });
   });

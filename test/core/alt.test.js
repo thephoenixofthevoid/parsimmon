@@ -31,7 +31,7 @@ testSetScenario(function() {
     });
 
     assert.throws(function() {
-      Parsimmon.alt("not a parser");
+      Parsimmon.alt(null); // "not a parser"
     });
 
     assert.strictEqual(Parsimmon.alt().parse("").status, false);

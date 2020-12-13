@@ -39,7 +39,7 @@ testSetScenario(function() {
     });
 
     assert.throws(function() {
-      Parsimmon.seq("not a parser");
+      Parsimmon.seq(null); // "not a parser"
     });
   });
 });

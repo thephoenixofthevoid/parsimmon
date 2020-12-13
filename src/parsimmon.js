@@ -1,42 +1,99 @@
 "use strict";
 
-function Parsimmon(action) {
-  if (!(this instanceof Parsimmon)) {
-    return new Parsimmon(action);
+class Parsimmon {
+
+  constructor(action) {
+    this._ = action;
   }
-  this._ = action;
+
+  tryParse(str) {
+    var result = this.parse(str);
+    if (result.status) {
+      return result.value;
+    } else {
+      var msg = Parsimmon.formatError(str, result);
+      var err = new Error(msg);
+      err.type = "ParsimmonError";
+      err.result = result;
+      throw err;
+    }
+  }
+
+  static takeWhile(predicate) {
+    assertFunction(predicate);
+  
+    return new Parsimmon(function (input, i) {
+      var j = i;
+      while (j < input.length && predicate(get(input, j))) {
+        j++;
+      }
+      return Parsimmon.makeSuccess(j, input.slice(i, j));
+    });
+  }
+
+  static custom(parsingFunction) {
+    return new Parsimmon(
+      parsingFunction(
+        Parsimmon.makeSuccess, 
+        Parsimmon.makeFailure
+      )
+    );
+  }
+
+  static makeSuccess(index, value) {
+    return {
+      status: true,
+      index,
+      value,
+      furthest: -1,
+      expected: []
+    };
+  }
+
+  static makeFailure(index, expected) {
+    if (!Array.isArray(expected)) {
+      expected = [expected];
+    }
+    return {
+      status: false,
+      index: -1,
+      value: null,
+      furthest: index,
+      expected
+    };
+  }
+
+  static lazy(desc, f) {
+    if (arguments.length < 2) {
+      f = desc;
+      desc = undefined;
+    }
+  
+    var parser = new Parsimmon(function (input, i) {
+      parser._ = f()._;
+      return parser._(input, i);
+    });
+  
+    if (desc) {
+      return parser.desc(desc);
+    } else {
+      return parser;
+    }
+  }
+
 }
 
+
+function isRegExp(obj) {
+  return !!(obj && obj.test && obj.exec && (obj.ignoreCase || obj.ignoreCase === false));
+}
 
 Parsimmon.isParser = isParser;
 function isParser(obj) {
   return obj instanceof Parsimmon;
 }
 
-Parsimmon.makeSuccess = makeSuccess;
-function makeSuccess(index, value) {
-  return {
-    status: true,
-    index,
-    value,
-    furthest: -1,
-    expected: []
-  };
-}
 
-Parsimmon.makeFailure = makeFailure;
-function makeFailure(index, expected) {
-  if (!Array.isArray(expected)) {
-    expected = [expected];
-  }
-  return {
-    status: false,
-    index: -1,
-    value: null,
-    furthest: index,
-    expected
-  };
-}
 
 function mergeReplies(result, last) {
   if (!last) return result;
@@ -83,7 +140,13 @@ function union(xs, ys) {
   return Array.from(temp).sort();
 }
 
-function assertParser(p) {
+function assertParser(p, i, parsers) {
+  if (typeof p === "string") {
+    p = parsers[i] = string(p)
+  }
+  if (isRegExp(p)) {
+    p = parsers[i] = regexp(p)
+  }
   if (!isParser(p)) {
     throw new Error("not a parser: " + p);
   }
@@ -252,17 +315,6 @@ function formatGot(input, error) {
   }
 
   var lineWithErrorCurrentIndex = lineWithErrorIndex - lineRange.from;
-
-  if (Buffer.isBuffer(input)) {
-    lastLineNumberLabelLength = (
-      (lineRange.to > 0 ? lineRange.to - 1 : lineRange.to) * 8
-    ).toString(16).length;
-
-    if (lastLineNumberLabelLength < 2) {
-      lastLineNumberLabelLength = 2;
-    }
-  }
-
   var linesWithLineNumbers = []
 
   lines.forEach(
@@ -291,19 +343,19 @@ function formatGot(input, error) {
   return linesWithLineNumbers.join("\n");
 }
 
-
-function formatExpected(expected) {
-  if (expected.length === 1) return "Expected:\n\n" + expected[0];
-  return "Expected one of the following: \n\n" + expected.join(", ");
-}
-
 Parsimmon.formatError = formatError;
 function formatError(input, error) {
+  const expected = error.expected;
+
+  if (expected.length === 1) {
+    var fmtExpected = "Expected:\n\n" + expected[0]
+  } else {
+    var fmtExpected = "Expected one of the following: \n\n" + expected.join(", ");
+  }
+
   return `\n-- PARSING FAILED ${"-".repeat(50)}\n\n${
       formatGot(input, error)
-    }\n\n${
-      formatExpected(error.expected)
-    }\n`
+    }\n\n${fmtExpected}\n`
 }
 
 function flags(re) {
@@ -339,7 +391,7 @@ function seq(...parsers) {
       accum[j] = result.value;
       i = result.index;
     }
-    return mergeReplies(makeSuccess(i, accum), result);
+    return mergeReplies(Parsimmon.makeSuccess(i, accum), result);
   });
 }
 
@@ -390,7 +442,7 @@ function seqObj(...parsers) {
       }
       i = result.index;
     }
-    return mergeReplies(makeSuccess(i, accum), result);
+    return mergeReplies(Parsimmon.makeSuccess(i, accum), result);
   });
 }
 
@@ -411,7 +463,7 @@ function createLanguage(parsers) {
   var language = {};
   for (const key of Object.getOwnPropertyNames(parsers)) {
     const parser = parsers[key]
-    language[key] = lazy(() => parser(language))
+    language[key] = Parsimmon.lazy(() => parser(language))
   }
   return language;
 }
@@ -474,19 +526,6 @@ Parsimmon.prototype.parse = function (input) {
 
 // -*- Other Methods -*-
 
-Parsimmon.prototype.tryParse = function (str) {
-  var result = this.parse(str);
-  if (result.status) {
-    return result.value;
-  } else {
-    var msg = formatError(str, result);
-    var err = new Error(msg);
-    err.type = "ParsimmonError";
-    err.result = result;
-    throw err;
-  }
-};
-
 Parsimmon.prototype.assert = function (condition, errorMessage) {
   return this.chain(v => condition(v) ? succeed(v) : fail(errorMessage));
 };
@@ -521,18 +560,17 @@ Parsimmon.prototype.many = function () {
 
     for (; ;) {
       result = mergeReplies(self._(input, i), result);
-      if (result.status) {
-        if (i === result.index) {
-          throw new Error(
-            "infinite loop detected in .many() parser --- calling .many() on " +
-            "a parser which can accept zero characters is usually the cause"
-          );
-        }
-        i = result.index;
-        accum.push(result.value);
-      } else {
-        return mergeReplies(makeSuccess(i, accum), result);
+      if (!result.status) {
+        return mergeReplies(Parsimmon.makeSuccess(i, accum), result);
       }
+      if (i === result.index) {
+        throw new Error(
+          "infinite loop detected in .many() parser --- calling .many() on " +
+          "a parser which can accept zero characters is usually the cause"
+        );
+      }
+      i = result.index;
+      accum.push(result.value);
     }
   });
 };
@@ -582,7 +620,7 @@ Parsimmon.prototype.times = function (min, max = min) {
         break;
       }
     }
-    return mergeReplies(makeSuccess(i, accum), prevResult);
+    return mergeReplies(Parsimmon.makeSuccess(i, accum), prevResult);
   });
 };
 
@@ -606,7 +644,7 @@ Parsimmon.prototype.map = function (fn) {
     var result = self._(input, i);
     if (!result.status) return result;
     const nvalue = fn(result.value);
-    const nresult = makeSuccess(result.index, nvalue)
+    const nresult = Parsimmon.makeSuccess(result.index, nvalue)
     return mergeReplies(nresult, result);
   });
 };
@@ -617,7 +655,7 @@ Parsimmon.prototype.contramap = function (fn) {
   return new Parsimmon(function (input, i) {
     var result = self.parse(fn(input.slice(i)));
     if (!result.status) return result;
-    return makeSuccess(i + input.length, result.value);
+    return Parsimmon.makeSuccess(i + input.length, result.value);
   });
 };
 
@@ -690,14 +728,14 @@ Parsimmon.prototype.chain = function (f) {
 };
 
 // -*- Constructors -*-
-
+Parsimmon.string = string;
 function string(str) {
   assertString(str);
   return new Parsimmon(function (input, i) {
     const head = input.slice(i, i + str.length)
     if (head !== str)
-      return makeFailure(i, `'${str}'`);
-    return makeSuccess(i + str.length, str);
+      return Parsimmon.makeFailure(i, `'${str}'`);
+    return Parsimmon.makeSuccess(i + str.length, str);
   });
 }
 
@@ -711,26 +749,26 @@ function regexp(re, group = 0) {
 
   return new Parsimmon(function (input, i) {
     var match = anchored.exec(input.slice(i));
-    if (!match) return makeFailure(i, "" + re);
+    if (!match) return Parsimmon.makeFailure(i, "" + re);
 
     if (0 <= group && group <= match.length) {
-      return makeSuccess(i + match[0].length, match[group]);
+      return Parsimmon.makeSuccess(i + match[0].length, match[group]);
     }
-    return makeFailure(i, `valid match group (0 to ${match.length}) in ${re}`);
+    return Parsimmon.makeFailure(i, `valid match group (0 to ${match.length}) in ${re}`);
   });
 }
 
 Parsimmon.succeed = succeed;
 function succeed(value) {
   return new Parsimmon(function (input, i) {
-    return makeSuccess(i, value);
+    return Parsimmon.makeSuccess(i, value);
   });
 }
 
 Parsimmon.fail = fail;
 function fail(expected) {
   return new Parsimmon(function (input, i) {
-    return makeFailure(i, expected);
+    return Parsimmon.makeFailure(i, expected);
   });
 }
 
@@ -758,8 +796,8 @@ function notFollowedBy(parser) {
     var result = parser._(input, i);
     var text = input.slice(i, result.index);
     return result.status
-      ? makeFailure(i, 'not "' + text + '"')
-      : makeSuccess(i, null);
+      ? Parsimmon.makeFailure(i, 'not "' + text + '"')
+      : Parsimmon.makeSuccess(i, null);
   });
 }
 
@@ -769,9 +807,9 @@ function test(predicate) {
   return new Parsimmon(function (input, i) {
     var char = get(input, i);
     if (i < input.length && predicate(char)) {
-      return makeSuccess(i + 1, char);
+      return Parsimmon.makeSuccess(i + 1, char);
     } else {
-      return makeFailure(i, "a character/byte matching " + predicate);
+      return Parsimmon.makeFailure(i, "a character/byte matching " + predicate);
     }
   });
 }
@@ -792,9 +830,6 @@ Parsimmon.noneOf = function noneOf(str) {
   }).desc("none of '" + str + "'");
 }
 
-Parsimmon.custom = function custom(parsingFunction) {
-  return new Parsimmon(parsingFunction(makeSuccess, makeFailure));
-}
 
 // TODO[ES5]: Improve error message using JSON.stringify eventually.
 Parsimmon.range = range;
@@ -804,36 +839,7 @@ function range(begin, end) {
   }).desc(begin + "-" + end);
 }
 
-Parsimmon.takeWhile = function takeWhile(predicate) {
-  assertFunction(predicate);
 
-  return new Parsimmon(function (input, i) {
-    var j = i;
-    while (j < input.length && predicate(get(input, j))) {
-      j++;
-    }
-    return makeSuccess(j, input.slice(i, j));
-  });
-}
-
-Parsimmon.lazy = lazy;
-function lazy(desc, f) {
-  if (arguments.length < 2) {
-    f = desc;
-    desc = undefined;
-  }
-
-  var parser = new Parsimmon(function (input, i) {
-    parser._ = f()._;
-    return parser._(input, i);
-  });
-
-  if (desc) {
-    return parser.desc(desc);
-  } else {
-    return parser;
-  }
-}
 
 // -*- Fantasy Land Extras -*-
 
@@ -854,25 +860,25 @@ Parsimmon.prototype["fantasy-land/map"] = Parsimmon.prototype.map;
 // -*- Base Parsers -*-
 
 var index = new Parsimmon(function (input, i) {
-  return makeSuccess(i, makeLineColumnIndex(input, i));
+  return Parsimmon.makeSuccess(i, makeLineColumnIndex(input, i));
 });
 
 var any = new Parsimmon(function (input, i) {
   if (i >= input.length) {
-    return makeFailure(i, "any character/byte");
+    return Parsimmon.makeFailure(i, "any character/byte");
   }
-  return makeSuccess(i + 1, get(input, i));
+  return Parsimmon.makeSuccess(i + 1, get(input, i));
 });
 
 var all = new Parsimmon(function (input, i) {
-  return makeSuccess(input.length, input.slice(i));
+  return Parsimmon.makeSuccess(input.length, input.slice(i));
 });
 
 var eof = new Parsimmon(function (input, i) {
   if (i < input.length) {
-    return makeFailure(i, "EOF");
+    return Parsimmon.makeFailure(i, "EOF");
   }
-  return makeSuccess(i, null);
+  return Parsimmon.makeSuccess(i, null);
 });
 
 var cr = string("\r");
@@ -897,7 +903,6 @@ Parsimmon.newline = newline;
 Parsimmon.of = succeed;
 Parsimmon.optWhitespace = regexp(/\s*/).desc("optional whitespace");
 Parsimmon.Parser = Parsimmon;
-Parsimmon.string = string;
 Parsimmon.whitespace = regexp(/\s+/).desc("whitespace");
 Parsimmon["fantasy-land/empty"] = empty;
 Parsimmon["fantasy-land/of"] = succeed;

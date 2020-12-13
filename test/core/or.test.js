@@ -21,7 +21,7 @@ describe("or", function() {
 
   it("asserts that a parser was given", function() {
     assert.throws(function() {
-      Parsimmon.string("x").or("not a parser");
+      Parsimmon.string("x").or(null); // "not a parser"
     });
   });
 
