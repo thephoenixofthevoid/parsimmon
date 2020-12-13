@@ -200,7 +200,10 @@ function makeLineColumnIndexString(input, i) {
   // if we are calling this function with the same arguments as last time
   // return the memoized value to prevent expensive processing below
   if (lastLineColumnIndex.input === input && lastLineColumnIndex.i === i) {
+    console.log("\nHit\n")
     return lastLineColumnIndex.value;
+  } else {
+    console.log("\nMiss\n")
   }
   var lines = input.slice(0, i).split("\n");
   // Note that unlike the character offset, the line and column offsets are
