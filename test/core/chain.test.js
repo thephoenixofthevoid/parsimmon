@@ -4,14 +4,14 @@ testSetScenario(function() {
   describe("chain", function() {
     it("asserts that a parser is returned", function() {
       var parser1 = Parsimmon.letter.chain(function() {
-        return "not a parser";
+        return null;// "not a parser"
       });
       assert.throws(function() {
         parser1.parse("x");
       });
 
       assert.throws(function() {
-        Parsimmon.letter.then("x");
+        Parsimmon.letter.then(null); // "x"
       });
     });
 

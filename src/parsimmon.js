@@ -19,6 +19,17 @@ class Parsimmon {
     }
   }
 
+  static toParser(x) {
+    if (Parsimmon.isParser(x)) {
+      return x
+    } else if (typeof x === "string") {
+      return string(x);
+    } else if (x instanceof RegExp) {
+      return regexp(x);
+    }
+    throw new Error("not a string, regexp, or parser: " + x);
+  }
+
   static takeWhile(predicate) {
     assertFunction(predicate);
   
@@ -81,17 +92,12 @@ class Parsimmon {
     }
   }
 
+  static isParser(obj) {
+    return obj instanceof Parsimmon;
+  }
+
 }
 
-
-function isRegExp(obj) {
-  return !!(obj && obj.test && obj.exec && (obj.ignoreCase || obj.ignoreCase === false));
-}
-
-Parsimmon.isParser = isParser;
-function isParser(obj) {
-  return obj instanceof Parsimmon;
-}
 
 
 
@@ -138,18 +144,6 @@ function makeLineColumnIndex(input, i) {
 function union(xs, ys) {
   const temp = new Set([...xs, ...ys])
   return Array.from(temp).sort();
-}
-
-function assertParser(p, i, parsers) {
-  if (typeof p === "string") {
-    p = parsers[i] = string(p)
-  }
-  if (isRegExp(p)) {
-    p = parsers[i] = regexp(p)
-  }
-  if (!isParser(p)) {
-    throw new Error("not a parser: " + p);
-  }
 }
 
 function get(input, i) {
@@ -206,7 +200,6 @@ var linesAfterStringError = 3;
 var bytesPerLine = 8;
 var bytesBefore = bytesPerLine * 5;
 var bytesAfter = bytesPerLine * 4;
-var defaultLinePrefix = "  ";
 
 
 
@@ -242,101 +235,113 @@ function toChunks(arr, chunkSize) {
   return chunks
 }
 
+function formatGot_binary(input, error) {
+  var byteLineWithErrorIndex = error.index.offset - (error.index.offset % bytesPerLine);
+  var columnByteIndex = error.index.offset - byteLineWithErrorIndex;
+  var byteRange = rangeFromIndexAndOffsets(byteLineWithErrorIndex, bytesBefore, bytesAfter + bytesPerLine, input.length);
+  var bytes = input.slice(byteRange.from, byteRange.to);
+  var bytesInChunks = toChunks(bytes.toJSON().data, bytesPerLine);
+
+  var byteLines = bytesInChunks.map(function (byteRow) {
+    return byteRow.map(function (byteValue) {
+      // Prefix byte values with a `0` if they are shorter than 2 characters.
+      return byteValue.toString(16).padStart(2, '0')
+    });
+  });
+
+  var lineRange = byteRangeToRange(byteRange);
+  var lineWithErrorIndex = byteLineWithErrorIndex / bytesPerLine;
+  var column = columnByteIndex * 3;
+
+  // Account for an extra space.
+  if (columnByteIndex >= 4) {
+    column += 1;
+  }
+
+  var verticalMarkerLength = 2;
+  var lines = byteLines.map(function (byteLine) {
+    return byteLine.length <= 4
+      ? byteLine.join(" ")
+      : byteLine.slice(0, 4).join(" ") + "  " + byteLine.slice(4).join(" ");
+  });
+  var lastLineNumberLabelLength = (
+    (lineRange.to > 0 ? lineRange.to - 1 : lineRange.to) * 8
+  ).toString(16).length;
+
+  if (lastLineNumberLabelLength < 2) {
+    lastLineNumberLabelLength = 2;
+  }
+
+  return {
+    verticalMarkerLength,
+    column,
+    lineWithErrorIndex,
+    lineRange,
+    lines, 
+    lastLineNumberLabelLength
+  }
+}
+
+
+function formatGot_string(input, error) {
+  var verticalMarkerLength = 1;
+  var inputLines = input.split(/\r\n|[\n\r\u2028\u2029]/);
+  var column = error.index.column - 1;
+  var lineWithErrorIndex = error.index.line - 1;
+  var lineRange = rangeFromIndexAndOffsets(lineWithErrorIndex, linesBeforeStringError, linesAfterStringError, inputLines.length);
+  var lines = inputLines.slice(lineRange.from, lineRange.to);
+  var lastLineNumberLabelLength = lineRange.to.toString().length;
+
+  return {
+    verticalMarkerLength,
+    column,
+    lineWithErrorIndex,
+    lineRange,
+    lines, 
+    lastLineNumberLabelLength
+  }
+}
+
 
 function formatGot(input, error) {
-  var index = error.index;
-  var i = index.offset;
-
-  var verticalMarkerLength = 1;
-  var column;
-  var lineWithErrorIndex;
-  var lines;
-  var lineRange;
-  var lastLineNumberLabelLength;
-
-  if (i === input.length) {
+  if (error.index.offset === input.length) {
     return "Got the end of the input";
   }
 
-  if (Buffer.isBuffer(input)) {
-    var byteLineWithErrorIndex = i - (i % bytesPerLine);
-    var columnByteIndex = i - byteLineWithErrorIndex;
-    var byteRange = rangeFromIndexAndOffsets(
-      byteLineWithErrorIndex,
-      bytesBefore,
-      bytesAfter + bytesPerLine,
-      input.length
-    );
-    var bytes = input.slice(byteRange.from, byteRange.to);
-    var bytesInChunks = toChunks(bytes.toJSON().data, bytesPerLine);
+  var {
+    verticalMarkerLength,
+    column,
+    lineWithErrorIndex,
+    lineRange,
+    lines, 
+    lastLineNumberLabelLength
+  } = Buffer.isBuffer(input) ? formatGot_binary(input, error) : formatGot_string(input, error);
 
-    var byteLines = bytesInChunks.map(function (byteRow) {
-      return byteRow.map(function (byteValue) {
-        // Prefix byte values with a `0` if they are shorter than 2 characters.
-        return byteValue.toString(16).padStart(2, '0')
-      });
-    });
-
-    lineRange = byteRangeToRange(byteRange);
-    lineWithErrorIndex = byteLineWithErrorIndex / bytesPerLine;
-    column = columnByteIndex * 3;
-
-    // Account for an extra space.
-    if (columnByteIndex >= 4) {
-      column += 1;
-    }
-
-    verticalMarkerLength = 2;
-    lines = byteLines.map(function (byteLine) {
-      return byteLine.length <= 4
-        ? byteLine.join(" ")
-        : byteLine.slice(0, 4).join(" ") + "  " + byteLine.slice(4).join(" ");
-    });
-    lastLineNumberLabelLength = (
-      (lineRange.to > 0 ? lineRange.to - 1 : lineRange.to) * 8
-    ).toString(16).length;
-
-    if (lastLineNumberLabelLength < 2) {
-      lastLineNumberLabelLength = 2;
-    }
-  } else {
-    var inputLines = input.split(/\r\n|[\n\r\u2028\u2029]/);
-    column = index.column - 1;
-    lineWithErrorIndex = index.line - 1;
-    lineRange = rangeFromIndexAndOffsets(
-      lineWithErrorIndex,
-      linesBeforeStringError,
-      linesAfterStringError,
-      inputLines.length
-    );
-
-    lines = inputLines.slice(lineRange.from, lineRange.to);
-    lastLineNumberLabelLength = lineRange.to.toString().length;
-  }
-
-  var lineWithErrorCurrentIndex = lineWithErrorIndex - lineRange.from;
   var linesWithLineNumbers = []
 
   lines.forEach(
     function (lineSource, index) {
-      var isLineWithError = index === lineWithErrorCurrentIndex;
-      var prefix = isLineWithError ? "> " : defaultLinePrefix;
-      var lineNumberLabel;
+      const line = lineRange.from + index;
 
       if (Buffer.isBuffer(input)) {
-        lineNumberLabel = ((lineRange.from + index) * 8).toString(16).padStart(lastLineNumberLabelLength, "0");
+        var lineNumberLabel = (line * 8).toString(16).padStart(lastLineNumberLabelLength, "0");
       } else {
-        lineNumberLabel = (lineRange.from + index + 1).toString().padStart(lastLineNumberLabelLength, " ");
+        var lineNumberLabel = (line + 1).toString(10).padStart(lastLineNumberLabelLength, " ");
       }
 
-      linesWithLineNumbers.push(prefix + lineNumberLabel + " | " + lineSource)
-      if (isLineWithError)
+      if (line === lineWithErrorIndex) {
+        const lineNumberSpace = " ".repeat(lastLineNumberLabelLength)
+        const lineMarker = " ".repeat(column) + "^".repeat(verticalMarkerLength)
+
         linesWithLineNumbers.push(
-          defaultLinePrefix +
-          " ".repeat(lastLineNumberLabelLength) + " | " +
-          " ".repeat(column) +
-          "^".repeat(verticalMarkerLength)
+            "> " + lineNumberLabel + " | " + lineSource,
+            "  " + lineNumberSpace + " | " + lineMarker
         )
+      } else {
+        linesWithLineNumbers.push(
+            "  " + lineNumberLabel + " | " + lineSource
+        )
+      }
     }
   );
 
@@ -380,7 +385,7 @@ function anchoredRegexp(re) {
 
 Parsimmon.seq = seq;
 function seq(...parsers) {
-  parsers.forEach(assertParser)
+  parsers = parsers.map(Parsimmon.toParser)
 
   return new Parsimmon(function (input, i) {
     var result;
@@ -402,10 +407,10 @@ function seqObj(...parsers) {
 
   for (var j = 0; j < parsers.length; j += 1) {
     var p = parsers[j];
-    if (isParser(p)) {
+    if (Parsimmon.isParser(p)) {
       continue;
     }
-    if (Array.isArray(p) && p.length === 2 && typeof p[0] === "string" && isParser(p[1])) {
+    if (Array.isArray(p) && p.length === 2 && typeof p[0] === "string" && Parsimmon.isParser(p[1])) {
       if (Object.prototype.hasOwnProperty.call(seenKeys, p[0])) {
         throw new Error("seqObj: duplicate key " + p[0]);
       }
@@ -470,7 +475,7 @@ function createLanguage(parsers) {
 
 Parsimmon.alt = alt;
 function alt(...parsers) {
-  parsers.forEach(assertParser)
+  parsers = parsers.map(Parsimmon.toParser)
   if (parsers.length === 0) {
     return fail("zero alternates");
   }
@@ -494,8 +499,9 @@ function sepBy(parser, separator) {
 
 Parsimmon.sepBy1 = sepBy1;
 function sepBy1(parser, separator) {
-  assertParser(parser);
-  assertParser(separator);
+  parser = Parsimmon.toParser(parser)
+  separator = Parsimmon.toParser(separator)
+
   var pairs = separator.then(parser).many();
   return seqMap(parser, pairs, function (r, rs) {
     return [r].concat(rs);
@@ -547,7 +553,7 @@ Parsimmon.prototype.thru = function (wrapper) {
 };
 
 Parsimmon.prototype.then = function (next) {
-  assertParser(next);
+  next = Parsimmon.toParser(next)
   return seq(this, next).map(A => A[1]);
 };
 
@@ -772,26 +778,23 @@ function fail(expected) {
   });
 }
 
+
+
+
 Parsimmon.lookahead = lookahead;
 function lookahead(x) {
-  if (isParser(x)) {
-    return new Parsimmon(function (input, i) {
-      var result = x._(input, i);
-      result.index = i;
-      result.value = "";
-      return result;
-    });
-  } else if (typeof x === "string") {
-    return lookahead(string(x));
-  } else if (x instanceof RegExp) {
-    return lookahead(regexp(x));
-  }
-  throw new Error("not a string, regexp, or parser: " + x);
+  x = Parsimmon.toParser(x);
+  return new Parsimmon(function (input, i) {
+    var result = x._(input, i);
+    result.index = i;
+    result.value = "";
+    return result;
+  });
 }
 
 Parsimmon.notFollowedBy = notFollowedBy;
 function notFollowedBy(parser) {
-  assertParser(parser);
+  parser = Parsimmon.toParser(parser)
   return new Parsimmon(function (input, i) {
     var result = parser._(input, i);
     var text = input.slice(i, result.index);

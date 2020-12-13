@@ -25,13 +25,13 @@ describe("Parsimmon.sepBy/sepBy1", function() {
     assert.deepEqual(csvSepB.parse(input).value, output);
     assert.deepEqual(csvSep1B.parse(input).value, output);
     assert.throws(function() {
-      Parsimmon.sepBy("not a parser");
+      Parsimmon.sepBy(null); // "not a parser"
     });
     assert.throws(function() {
-      Parsimmon.sepBy(Parsimmon.string("a"), "not a parser");
+      Parsimmon.sepBy(Parsimmon.string("a"), null);//"not a parser"
     });
     assert.throws(function() {
-      Parsimmon.string("a").sepBy("not a parser");
+      Parsimmon.string("a").sepBy(null);//"not a parser"
     });
   });
 

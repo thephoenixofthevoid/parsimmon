@@ -27,7 +27,7 @@ testSetScenario(function() {
 
     it("errors when argument is not a parser", function() {
       assert.throws(function() {
-        Parsimmon.string("x").then("not a parser");
+        Parsimmon.string("x").then(null); // "not a parser"
       });
     });
   });
