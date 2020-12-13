@@ -234,3 +234,83 @@ function intLE(length) {
         return buff.readIntLE(0, length);
     });
 }
+
+
+function toChunks(arr, chunkSize) {
+    arr = arr.slice()
+    const chunks = [];
+    while (arr.length) {
+      chunks.push(arr.splice(0, chunkSize))
+    }
+    return chunks
+  }
+
+  const bytesPerLine = 8;
+  const bytesBefore = bytesPerLine * 5;
+  const bytesAfter = bytesPerLine * 4;
+
+
+  function byteRangeToRange(byteRange) {
+    // Exception for inputs smaller than `bytesPerLine`
+    if (byteRange.from === 0 && byteRange.to === 1) {
+      return { from: byteRange.from, to: byteRange.to };
+    }
+  
+    return {
+      from: byteRange.from / bytesPerLine,
+      // Round `to`, so we don't get float if the amount of bytes is not divisible by `bytesPerLine`
+      to: Math.floor(byteRange.to / bytesPerLine)
+    };
+  }
+  
+  function toHex(byteValue) {
+    // Prefix byte values with a `0` if they are shorter than 2 characters.
+    return byteValue.toString(16).padStart(2, '0')
+  }
+  
+  function formatGot_binary(input, error) {
+    var verticalMarkerLength = 2;
+    var byteLineWithErrorIndex = error.index.offset - (error.index.offset % bytesPerLine);
+    var columnByteIndex = error.index.offset - byteLineWithErrorIndex;
+    var byteRange = rangeFromIndexAndOffsets(byteLineWithErrorIndex, bytesBefore, bytesAfter + bytesPerLine, input.length);
+    var bytes = input.slice(byteRange.from, byteRange.to);
+  
+  
+    var lineRange = byteRangeToRange(byteRange);
+    var lineWithErrorIndex = byteLineWithErrorIndex / bytesPerLine;
+  
+    if (columnByteIndex >= 4) {
+      // Account for an extra space.
+      var column = columnByteIndex * 3 + 1;
+    } else {
+      var column = columnByteIndex * 3;
+    }
+  
+    var lines = toChunks(bytes.toJSON().data, bytesPerLine)
+      .map((byteRow) => {
+        const byteLine = byteRow.map(toHex)
+        if (byteLine.length <= 4) {
+          return byteLine.join(" ")
+        } else {
+          return byteLine.slice(0, 4).join(" ") + "  " + byteLine.slice(4).join(" ");
+        }
+      });
+  
+    var lastLineNumberLabelLength = (
+      (lineRange.to > 0 ? lineRange.to - 1 : lineRange.to) * 8
+    ).toString(16).length;
+  
+    if (lastLineNumberLabelLength < 2) {
+      lastLineNumberLabelLength = 2;
+    }
+  
+    return {
+      verticalMarkerLength,
+      column,
+      lineWithErrorIndex,
+      lineRange,
+      lines, 
+      lastLineNumberLabelLength
+    }
+  }
+  
