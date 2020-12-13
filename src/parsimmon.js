@@ -341,19 +341,24 @@ Parsimmon.seq = function seq(...parsers) {
 }
 
 
-function validateSeqObjParams(parsers) {
+function preprocessSeqObjParams(parsers) {
   var seenKeys = new Set()
+  const pairs = []
 
-  for (var j = 0; j < parsers.length; j += 1) {
-    var p = parsers[j];
+  for (let p of parsers) {
     if (Parsimmon.isParser(p)) {
+      const name = null
+      pairs.push({ name, parser: p })
       continue;
     }
+    
     if (Array.isArray(p) && p.length === 2 && typeof p[0] === "string" && Parsimmon.isParser(p[1])) {
-      if (seenKeys.has(p[0])) {
-        throw new Error("seqObj: duplicate key " + p[0]);
+      const [ name, parser ] = p;
+      if (seenKeys.has(name)) {
+        throw new Error("seqObj: duplicate key " + name);
       }
-      seenKeys.add(p[0])
+      seenKeys.add(name)
+      pairs.push({ name, parser })
       continue;
     }
     throw new Error(
@@ -363,25 +368,18 @@ function validateSeqObjParams(parsers) {
   if (seenKeys.size === 0) {
     throw new Error("seqObj expects at least one named parser, found zero");
   }
+  return pairs;
 }
 
 
 Parsimmon.seqObj = function seqObj(...parsers) {
-  validateSeqObjParams(parsers)
+  parsers = preprocessSeqObjParams(parsers)
 
   return new Parsimmon(function (input, i) {
     var result;
     var accum = {};
     for (var j = 0; j < parsers.length; j += 1) {
-      var name;
-      var parser;
-      if (Array.isArray(parsers[j])) {
-        name = parsers[j][0];
-        parser = parsers[j][1];
-      } else {
-        name = null;
-        parser = parsers[j];
-      }
+      const { name, parser } = parsers[j]
       result = mergeReplies(parser._(input, i), result);
       if (!result.status) {
         return result;
@@ -416,10 +414,10 @@ Parsimmon.createLanguage = function createLanguage(parsers) {
 }
 
 Parsimmon.alt = function alt(...parsers) {
-  parsers = parsers.map(Parsimmon.toParser)
-  if (parsers.length === 0) {
+  if (parsers.length === 0) 
     return Parsimmon.fail("zero alternates");
-  }
+    
+  parsers = parsers.map(Parsimmon.toParser)
   return new Parsimmon(function (input, i) {
     var result;
     for (var j = 0; j < parsers.length; j += 1) {
