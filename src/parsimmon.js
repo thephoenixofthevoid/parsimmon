@@ -416,7 +416,7 @@ Parsimmon.createLanguage = function createLanguage(parsers) {
 Parsimmon.alt = function alt(...parsers) {
   if (parsers.length === 0) 
     return Parsimmon.fail("zero alternates");
-    
+
   parsers = parsers.map(Parsimmon.toParser)
   return new Parsimmon(function (input, i) {
     var result;
@@ -645,9 +645,9 @@ Parsimmon.prototype.ap = function (other) {
 Parsimmon.prototype.chain = function (f) {
   var self = this;
   return new Parsimmon(function (input, i) {
-    var result = self._(input, i);
+    const result = self._(input, i);
     if (!result.status) return result;
-    var nextParser = f(result.value);
+    const nextParser = f(result.value);
     return mergeReplies(nextParser._(input, result.index), result);
   });
 };
@@ -710,9 +710,9 @@ Parsimmon.noneOf = function noneOf(str) {
 }
 
 Parsimmon.range = function range(begin, end) {
-  return Parsimmon.test(function (ch) {
-    return begin <= ch && ch <= end;
-  }).desc(begin + "-" + end);
+  return Parsimmon
+    .test(ch => begin <= ch && ch <= end)
+    .desc(begin + "-" + end);
 }
 
 
